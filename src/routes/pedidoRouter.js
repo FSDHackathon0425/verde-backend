@@ -1,5 +1,5 @@
 const express = require("express");
-const orderController = require("../controllers/pedidoController");
+const orderController = require("../src/controllers/pedidoController");
 const orderRouter = express.Router();
 
 // Order Routes

@@ -1,7 +1,8 @@
 require("dotenv").config();
 const mongoose = require("mongoose");
 const cors = require("cors");
-
+const Menu = require("./src/models/menuModel");
+const Pedido = require("./src/models/pedidoModel");
 /***
  * BOT Commands
  ***/
@@ -9,13 +10,47 @@ const TelegramBot = require("node-telegram-bot-api");
 const token = process.env.TELEGRAM_BOT_TOKEN;
 const bot = new TelegramBot(token, { polling: true });
 
-/* const usuarioRouter = require("./routes/usuarioRouter");
-const menuRouter = require("./routes/menuRouter");
-const pedidoRouter = require("./routes/pedidoRouter");
-const restauranteRouter = require("./routes/restauranteRouter"); */
-/* routes */
+/* const usuarioRouter = require("./src/routes/usuarioRouter");
+const menuRouter = require("./src/routes/menuRouter");
+const pedidoRouter = require("./src/routes/pedidoRouter");
+const restauranteRouter = require("./src/routes/restauranteRouter"); */
 
-bot.on("message", (msg) => {
+const getMenus = async () => {
+  return [
+    {
+      _id: "1",
+      titulo: "Menu 1",
+      descripcion: "Descripción del menú 1",
+      precio: 10,
+    },
+    {
+      _id: "2",
+      titulo: "Menu 2",
+      descripcion: "Descripción del menú 2",
+      precio: 15,
+    },
+    {
+      _id: "3",
+      titulo: "Menu 3",
+      descripcion: "Descripción del menú 3",
+      precio: 20,
+    },
+  ];
+  // return await Menu.find();
+};
+
+const postPedido = async (userId, usuarioNombre, menuId) => {
+  const pedido = new Pedido({
+    userId: userId,
+    usuarioNombre: usuarioNombre,
+    menuId: menuId,
+    completado: false,
+  });
+  await pedido.save();
+  return pedido;
+};
+
+bot.on("message", async (msg) => {
   const chatId = msg.chat.id;
   const messageText = msg.text;
   const userName = msg.from.first_name || "Usuario";
@@ -30,6 +65,8 @@ bot.on("message", (msg) => {
   }
 
   if (messageText === "/menu") {
+    const menus = await getMenus();
+
     const menuMessage = `
 ¡Aquí tienes el menú del restaurante! 🍽️
 
@@ -38,10 +75,12 @@ Por favor, selecciona el menú que deseas pedir:
 
     const options = {
       reply_markup: {
-        inline_keyboard: [
-          [{ text: "🍖 Kebab", callback_data: "menu_kebab" }],
-          [{ text: "🌯 Durum", callback_data: "menu_durum" }],
-        ],
+        inline_keyboard: menus.map((menu) => [
+          {
+            text: `${menu.titulo} - ${menu.precio}€`,
+            callback_data: `${menu._id}`,
+          },
+        ]),
       },
     };
 
@@ -52,43 +91,17 @@ Por favor, selecciona el menú que deseas pedir:
 // Manejo de las respuestas de los botones
 bot.on("callback_query", (callbackQuery) => {
   const message = callbackQuery.message;
-  const data = callbackQuery.data;
+  const data = callbackQuery.data; // Este es el menuId que debes guardar
+  const chatId = message.chat.id;
+  const userName = message.chat.first_name;
 
-  if (data === "menu_kebab" || data === "menu_durum") {
-    const menuName = data === "menu_kebab" ? "🍖 Kebab" : "🌯 Durum";
+  postPedido(chatId, userName, data);
+  bot.sendMessage(
+    chatId,
+    `Gracias por tu pedido, ${userName}! Has seleccionado el menú con ID: ${data}.`
+  );
 
-    const options = {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: "Con bebida", callback_data: `${data}_bebida` }],
-          [{ text: "Con patatas", callback_data: `${data}_patatas` }],
-          [{ text: "Ambas", callback_data: `${data}_ambas` }],
-        ],
-      },
-    };
-
-    bot.sendMessage(
-      message.chat.id,
-      `Has seleccionado: ${menuName}. ¿Qué deseas añadir?`,
-      options
-    );
-  }
-
-  // Respuesta a las selecciones específicas
-  const menuOptions = {
-    menu_kebab_bebida: "🍖 Kebab con bebida",
-    menu_kebab_patatas: "🍖 Kebab con patatas",
-    menu_kebab_ambas: "🍖 Kebab con bebida y patatas",
-    menu_durum_bebida: "🌯 Durum con bebida",
-    menu_durum_patatas: "🌯 Durum con patatas",
-    menu_durum_ambas: "🌯 Durum con bebida y patatas",
-  };
-
-  if (menuOptions[data]) {
-    bot.sendMessage(message.chat.id, `Has seleccionado: ${menuOptions[data]}.`);
-  }
-
-  bot.answerCallbackQuery(callbackQuery.id); // Responder al callback para evitar errores
+  bot.answerCallbackQuery(callbackQuery.id);
 });
 
 /***
@@ -103,25 +116,17 @@ bot.on("callback_query", (callbackQuery) => {
 const express = require("express");
 const port = 3333;
 
-const MONGODB_URI =
-  "mongodb+srv://" +
-  process.env.MONGODB_USER +
-  ":" +
-  process.env.MONGODB_PASSWORD +
-  "@" +
-  process.env.MONGODB_HOST +
-  "/" +
-  process.env.MONGODB_DB +
-  "?authSource=admin&replicaSet=myRepl";
-
 //Instanciamos express
 const app = express();
+
+// Habilitar CORS para todas las rutas
+app.use(cors()); // <--- Añadido aquí
 
 //Hacemos que funcione el req.body
 app.use(express.json());
 
 mongoose
-  .connect(MONGODB_URI)
+  .connect(process.env.MONGODB_URI)
   .then(() => console.log("✅ MongoDB connected successfully"))
   .catch((err) => console.error("❌ MongoDB connection error:", err));
 

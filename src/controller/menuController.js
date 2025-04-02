@@ -1,8 +1,22 @@
 const Menu = require("../models/Menu");
 
+// Crear un nuevo menú
 exports.addMenu = async (req, res) => {
   try {
-    const menu = new Menu({ ...req.body, restauranteId: req.params.restaurantId });
+    const { titulo, descripcion, precio } = req.body;
+
+    if (!titulo || !precio) {
+      return res
+        .status(400)
+        .json({ error: "El título y el precio son requeridos." });
+    }
+
+    const menu = new Menu({
+      titulo,
+      descripcion,
+      precio,
+    });
+
     const saved = await menu.save();
     res.status(201).json(saved);
   } catch (err) {
@@ -10,42 +24,62 @@ exports.addMenu = async (req, res) => {
   }
 };
 
+// Obtener todos los menús
 exports.getRestaurantMenu = async (req, res) => {
   try {
-    const items = await Menu.find({ restauranteId: req.params.restaurantId });
+    const items = await Menu.find();
     res.json(items);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
 
+// Filtrar menús por precio (opcional)
+exports.filterMenuItems = async (req, res) => {
+  const { minPrice, maxPrice } = req.query;
+
+  try {
+    const filter = {
+      precio: {
+        $gte: Number(minPrice) || 0,
+        $lte: Number(maxPrice) || Infinity,
+      },
+    };
+
+    const filtered = await Menu.find(filter);
+    res.json(filtered);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Actualizar un menú existente
 exports.updateMenuItem = async (req, res) => {
   try {
-    const updated = await Menu.findByIdAndUpdate(req.params.menuId, req.body, { new: true });
+    const updated = await Menu.findByIdAndUpdate(req.params.menuId, req.body, {
+      new: true,
+    });
+
+    if (!updated) {
+      return res.status(404).json({ error: "El menú no fue encontrado." });
+    }
+
     res.json(updated);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 };
 
+// Eliminar un menú
 exports.deleteMenuItem = async (req, res) => {
   try {
-    await Menu.findByIdAndDelete(req.params.menuId);
-    res.status(204).end();
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};
+    const deleted = await Menu.findByIdAndDelete(req.params.menuId);
 
-exports.filterMenuItems = async (req, res) => {
-  const { minPrice, maxPrice } = req.query;
-  try {
-    const filter = {
-      restauranteId: req.params.restaurantId,
-      precio: { $gte: minPrice || 0, $lte: maxPrice || Infinity },
-    };
-    const filtered = await Menu.find(filter);
-    res.json(filtered);
+    if (!deleted) {
+      return res.status(404).json({ error: "El menú no fue encontrado." });
+    }
+
+    res.status(204).end();
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
