@@ -1,6 +1,11 @@
 require("dotenv").config();
 const mongoose = require("mongoose");
+const express = require("express");
 const cors = require("cors");
+
+// MODELOS
+const Menu = require("./src/models/menuModel");
+const Pedido = require("./src/models/pedidoModel");
 
 /***
  * BOT Commands
@@ -9,12 +14,7 @@ const TelegramBot = require("node-telegram-bot-api");
 const token = process.env.TELEGRAM_BOT_TOKEN;
 const bot = new TelegramBot(token, { polling: true });
 
-/* const usuarioRouter = require("./routes/usuarioRouter");
-const menuRouter = require("./routes/menuRouter");
-const pedidoRouter = require("./routes/pedidoRouter");
-const restauranteRouter = require("./routes/restauranteRouter"); */
-/* routes */
-
+// 📩 Comando: /start
 bot.on("message", async (msg) => {
   const chatId = msg.chat.id;
   const messageText = msg.text;
@@ -22,7 +22,6 @@ bot.on("message", async (msg) => {
 
   console.log(msg);
 
-  // Mensaje de bienvenida
   if (messageText === "/start") {
     return bot.sendMessage(
       chatId,
@@ -30,9 +29,8 @@ bot.on("message", async (msg) => {
     );
   }
 
-  // Menú
   if (messageText === "/menu") {
-    // 1️⃣ Opciones rápidas tipo "Kebab", "Durum"
+    // Menú rápido
     const menuMessage = `¡Aquí tienes el menú del restaurante! 🍽️\n\nSelecciona una opción o desplázate más abajo para ver todos los platos:`;
 
     const quickOptions = {
@@ -46,18 +44,16 @@ bot.on("message", async (msg) => {
 
     await bot.sendMessage(chatId, menuMessage, quickOptions);
 
-    // 2️⃣ Mostrar menú real desde base de datos
+    // Menú real desde base de datos (sin restauranteId)
     try {
-      const items = await Menu.find().populate("restauranteId");
+      const items = await Menu.find();
 
       if (items.length === 0) {
         return bot.sendMessage(chatId, "No hay platos disponibles ahora mismo.");
       }
 
       items.forEach((item) => {
-        const nombreRestaurante = item.restauranteId?.nombre || "Restaurante";
-
-        const text = `🍽 *${item.titulo}*  \n_${nombreRestaurante}_\n${item.descripcion}\n💸 *${item.precio}€*`;
+        const text = `🍽 *${item.titulo}*\n${item.descripcion}\n💸 *${item.precio}€*`;
         const options = {
           parse_mode: "Markdown",
           reply_markup: {
@@ -76,13 +72,12 @@ bot.on("message", async (msg) => {
   }
 });
 
-
-// Manejo de las respuestas de los botones
+// 📦 Manejo de pedidos por botones
 bot.on("callback_query", async (callbackQuery) => {
   const msg = callbackQuery.message;
   const data = callbackQuery.data;
 
-  // Lógica de crear pedido
+  // Crear pedido
   if (data.startsWith("order_")) {
     const [_, menuId, userId] = data.split("_");
 
@@ -114,7 +109,7 @@ bot.on("callback_query", async (callbackQuery) => {
     }
   }
 
-  // Lógica para completar pedido (validando que sea del usuario)
+  // Completar pedido
   if (data.startsWith("complete_")) {
     const pedidoId = data.split("_")[1];
     try {
@@ -133,7 +128,7 @@ bot.on("callback_query", async (callbackQuery) => {
     }
   }
 
-  // Lógica para cancelar pedido (validando que sea del usuario)
+  // Cancelar pedido
   if (data.startsWith("cancel_")) {
     const pedidoId = data.split("_")[1];
     try {
@@ -152,7 +147,7 @@ bot.on("callback_query", async (callbackQuery) => {
     }
   }
 
-  // Lógica de opciones especiales tipo "Durum con patatas", etc.
+  // Opción rápida
   const menuOptions = {
     menu_kebab_bebida: "🍖 Kebab con bebida",
     menu_kebab_patatas: "🍖 Kebab con patatas",
@@ -166,23 +161,20 @@ bot.on("callback_query", async (callbackQuery) => {
     bot.sendMessage(msg.chat.id, `Has seleccionado: ${menuOptions[data]}.`);
   }
 
-  // Siempre responde al callback para evitar errores en Telegram
+  // Siempre responde al callback para evitar errores
   bot.answerCallbackQuery(callbackQuery.id);
 });
-
-
-/***
- * END BOT Commands
- ***/
 
 /***
  * HTTP Express Backend Commands
  ***/
-
-// Importamos o requerimos express
-const express = require("express");
 const port = 3333;
+const app = express();
 
+app.use(cors());
+app.use(express.json());
+
+// MongoDB connection
 const MONGODB_URI =
   "mongodb+srv://" +
   process.env.MONGODB_USER +
@@ -194,23 +186,15 @@ const MONGODB_URI =
   process.env.MONGODB_DB +
   "?authSource=admin&replicaSet=myRepl";
 
-//Instanciamos express
-const app = express();
-
-//Hacemos que funcione el req.body
-app.use(express.json());
-
 mongoose
   .connect(MONGODB_URI)
-  .then(() => console.log("MongoDB connected successfully"))
-  .catch((err) => console.error("MongoDB connection error:", err));
+  .then(() => console.log("✅ MongoDB connected successfully"))
+  .catch((err) => console.error("❌ MongoDB connection error:", err));
 
-/* app.use("/api/users", usuarioRouter);
-app.use("/api/menu", menuRouter);
-app.use("/api/orders", pedidoRouter);
-app.use("/api/restaurants", restauranteRouter); */
+// Rutas descomentables si decides activarlas luego:
+// const menuRouter = require("./src/routes/menuRouter");
+// app.use("/api/menu", menuRouter);
 
-// Arrancamos el servidor para que escuche llamadas
 app.listen(port, () => {
-  console.log(" El servidor está escuchando en el puerto " + port);
+  console.log("🚀 Servidor escuchando en el puerto " + port);
 });
