@@ -61,5 +61,5 @@ app.use(express.json());
 
 // Arrancamos el servidor para que escuche llamadas
 app.listen(port, () => {
-  "El servidor está escuchando en el puerto " + port;
+  console.log("🚀 El servidor está escuchando en el puerto " + port);
 });
