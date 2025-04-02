@@ -1,4 +1,4 @@
-const Menu = require("../models/Menu");
+const Menu = require("../models/menuModel");
 
 // Crear un nuevo menú
 exports.addMenu = async (req, res) => {
@@ -24,8 +24,18 @@ exports.addMenu = async (req, res) => {
   }
 };
 
+// Crear múltiples menús (Bulk Insert)
+exports.addMenusBulk = async (req, res) => {
+  try {
+    const savedMenus = await Menu.insertMany(req.body);
+    res.status(201).json(savedMenus);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+};
+
 // Obtener todos los menús
-exports.getRestaurantMenu = async (req, res) => {
+exports.getMenus = async (req, res) => {
   try {
     const items = await Menu.find();
     res.json(items);
