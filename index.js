@@ -1,6 +1,5 @@
 require("dotenv").config();
 const mongoose = require("mongoose");
-const express = require("express");
 const cors = require("cors");
 
 /***
@@ -10,144 +9,86 @@ const TelegramBot = require("node-telegram-bot-api");
 const token = process.env.TELEGRAM_BOT_TOKEN;
 const bot = new TelegramBot(token, { polling: true });
 
-const usuarioRouter = require("./src/routes/usuarioRouter");
-const menuRouter = require("./src/routes/menuRouter");
-const pedidoRouter = require("./src/routes/pedidoRouter");
-const restauranteRouter = require("./src/routes/restauranteRouter");
+/* const usuarioRouter = require("./routes/usuarioRouter");
+const menuRouter = require("./routes/menuRouter");
+const pedidoRouter = require("./routes/pedidoRouter");
+const restauranteRouter = require("./routes/restauranteRouter"); */
+/* routes */
 
-// Modelos para el bot
-const Menu = require("./src/models/Menu");
-const Pedido = require("./src/models/Pedido");
-
-// Mostrar menú de un restaurante
-bot.onText(/\/menu (.+)/, async (msg, match) => {
+bot.on("message", (msg) => {
   const chatId = msg.chat.id;
-  const restaurantId = match[1];
+  const messageText = msg.text;
+  const userName = msg.from.first_name || "Usuario";
 
-  try {
-    const items = await Menu.find({ restauranteId });
+  console.log(msg);
 
-    if (items.length === 0) {
-      return bot.sendMessage(chatId, "No hay menú disponible.");
-    }
+  if (messageText === "/start") {
+    bot.sendMessage(
+      chatId,
+      `Hola, ${userName}! Bienvenido al bot del restaurante. Escribe /menu para ver el menú.`
+    );
+  }
 
-    items.forEach((item) => {
-      const text = `🍽 *${item.titulo}*\n${item.descripcion}\n💸 ${item.precio}€`;
-      const options = {
-        parse_mode: "Markdown",
-        reply_markup: {
-          inline_keyboard: [[{
-            text: "Pedir",
-            callback_data: `order_${item._id}_${chatId}`,
-          }]],
-        },
-      };
-      bot.sendMessage(chatId, text, options);
-    });
-  } catch (error) {
-    console.error("❌ Error al obtener el menú:", error);
-    bot.sendMessage(chatId, "❌ Error al obtener el menú.");
+  if (messageText === "/menu") {
+    const menuMessage = `
+¡Aquí tienes el menú del restaurante! 🍽️
+
+Por favor, selecciona el menú que deseas pedir:
+`;
+
+    const options = {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "🍖 Kebab", callback_data: "menu_kebab" }],
+          [{ text: "🌯 Durum", callback_data: "menu_durum" }],
+        ],
+      },
+    };
+
+    bot.sendMessage(chatId, menuMessage, options);
   }
 });
 
-// Crear pedido desde botón
-bot.on("callback_query", async (callbackQuery) => {
-  const msg = callbackQuery.message;
+// Manejo de las respuestas de los botones
+bot.on("callback_query", (callbackQuery) => {
+  const message = callbackQuery.message;
   const data = callbackQuery.data;
 
-  // Crear pedido: "order_<menuId>_<chatId>"
-  if (data.startsWith("order_")) {
-    const [_, menuId, userId] = data.split("_");
+  if (data === "menu_kebab" || data === "menu_durum") {
+    const menuName = data === "menu_kebab" ? "🍖 Kebab" : "🌯 Durum";
 
-    try {
-      const pedido = new Pedido({
-        userId: msg.chat.id, // Telegram user ID (chatId)
-        menuId,
-        completado: false,
-        usuarioNombre: msg.chat.first_name || "Anon"
-      });
+    const options = {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "Con bebida", callback_data: `${data}_bebida` }],
+          [{ text: "Con patatas", callback_data: `${data}_patatas` }],
+          [{ text: "Ambas", callback_data: `${data}_ambas` }],
+        ],
+      },
+    };
 
-      const savedPedido = await pedido.save();
-
-      const options = {
-        reply_markup: {
-          inline_keyboard: [
-            [
-              { text: "✅ Completar", callback_data: `complete_${savedPedido._id}` },
-              { text: "❌ Cancelar", callback_data: `cancel_${savedPedido._id}` }
-            ]
-          ]
-        }
-      };
-
-      bot.sendMessage(msg.chat.id, "🛒 Pedido creado. ¿Qué quieres hacer?", options);
-    } catch (error) {
-      console.error("❌ Error al crear el pedido:", error);
-      bot.sendMessage(msg.chat.id, "❌ Error al procesar el pedido.");
-    }
+    bot.sendMessage(
+      message.chat.id,
+      `Has seleccionado: ${menuName}. ¿Qué deseas añadir?`,
+      options
+    );
   }
 
-  // Completar pedido (solo si es del mismo usuario)
-  if (data.startsWith("complete_")) {
-    const pedidoId = data.split("_")[1];
-    try {
-      const pedido = await Pedido.findById(pedidoId);
-      if (!pedido) return bot.sendMessage(msg.chat.id, "❌ Pedido no encontrado.");
+  // Respuesta a las selecciones específicas
+  const menuOptions = {
+    menu_kebab_bebida: "🍖 Kebab con bebida",
+    menu_kebab_patatas: "🍖 Kebab con patatas",
+    menu_kebab_ambas: "🍖 Kebab con bebida y patatas",
+    menu_durum_bebida: "🌯 Durum con bebida",
+    menu_durum_patatas: "🌯 Durum con patatas",
+    menu_durum_ambas: "🌯 Durum con bebida y patatas",
+  };
 
-      if (pedido.userId !== msg.chat.id.toString()) {
-        return bot.sendMessage(msg.chat.id, "🚫 No puedes completar un pedido que no es tuyo.");
-      }
-
-      await Pedido.findByIdAndUpdate(pedidoId, { completado: true });
-      bot.sendMessage(msg.chat.id, "✅ Pedido marcado como completado.");
-    } catch (error) {
-      console.error("❌ Error al completar pedido:", error);
-      bot.sendMessage(msg.chat.id, "❌ No se pudo completar el pedido.");
-    }
+  if (menuOptions[data]) {
+    bot.sendMessage(message.chat.id, `Has seleccionado: ${menuOptions[data]}.`);
   }
 
-  // Cancelar pedido (solo si es del mismo usuario)
-  if (data.startsWith("cancel_")) {
-    const pedidoId = data.split("_")[1];
-    try {
-      const pedido = await Pedido.findById(pedidoId);
-      if (!pedido) return bot.sendMessage(msg.chat.id, "❌ Pedido no encontrado.");
-
-      if (pedido.userId !== msg.chat.id.toString()) {
-        return bot.sendMessage(msg.chat.id, "🚫 No puedes cancelar un pedido que no es tuyo.");
-      }
-
-      await Pedido.findByIdAndDelete(pedidoId);
-      bot.sendMessage(msg.chat.id, "❌ Pedido cancelado y eliminado.");
-    } catch (error) {
-      console.error("❌ Error al cancelar pedido:", error);
-      bot.sendMessage(msg.chat.id, "❌ No se pudo cancelar el pedido.");
-    }
-  }
-});
-
-
-// Ver pedidos del usuario
-bot.onText(/\/mispedidos/, async (msg) => {
-  const chatId = msg.chat.id;
-
-  try {
-    const pedidos = await Pedido.find({ userId: chatId }).populate("menuId");
-
-    if (pedidos.length === 0) {
-      return bot.sendMessage(chatId, "No tienes pedidos todavía.");
-    }
-
-    let mensaje = "📦 *Tus pedidos:*\n\n";
-    pedidos.forEach((p, i) => {
-      mensaje += `#${i + 1} - *${p.menuId.titulo}* - ${p.completado ? "✅ Completado" : "🕒 Pendiente"}\n`;
-    });
-
-    bot.sendMessage(chatId, mensaje, { parse_mode: "Markdown" });
-  } catch (error) {
-    console.error("❌ Error al obtener pedidos:", error);
-    bot.sendMessage(chatId, "❌ Error al obtener tus pedidos.");
-  }
+  bot.answerCallbackQuery(callbackQuery.id); // Responder al callback para evitar errores
 });
 
 /***
@@ -158,16 +99,25 @@ bot.onText(/\/mispedidos/, async (msg) => {
  * HTTP Express Backend Commands
  ***/
 
+// Importamos o requerimos express
+const express = require("express");
 const port = 3333;
 
-// MongoDB URI desde .env
-const MONGODB_URI = process.env.MONGO_URL;
+const MONGODB_URI =
+  "mongodb+srv://" +
+  process.env.MONGODB_USER +
+  ":" +
+  process.env.MONGODB_PASSWORD +
+  "@" +
+  process.env.MONGODB_HOST +
+  "/" +
+  process.env.MONGODB_DB +
+  "?authSource=admin&replicaSet=myRepl";
 
-// Instanciamos express
+//Instanciamos express
 const app = express();
 
-// Hacemos que funcione el req.body
-app.use(cors());
+//Hacemos que funcione el req.body
 app.use(express.json());
 
 mongoose
@@ -175,13 +125,12 @@ mongoose
   .then(() => console.log("✅ MongoDB connected successfully"))
   .catch((err) => console.error("❌ MongoDB connection error:", err));
 
-// Rutas API
-app.use("/api/users", usuarioRouter);
+/* app.use("/api/users", usuarioRouter);
 app.use("/api/menu", menuRouter);
 app.use("/api/orders", pedidoRouter);
-app.use("/api/restaurants", restauranteRouter);
+app.use("/api/restaurants", restauranteRouter); */
 
-// Arrancamos el servidor
+// Arrancamos el servidor para que escuche llamadas
 app.listen(port, () => {
   console.log("🚀 El servidor está escuchando en el puerto " + port);
 });
