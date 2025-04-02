@@ -32,7 +32,7 @@ bot.onText(/\/menu (.+)/, async (msg, match) => {
     }
 
     items.forEach((item) => {
-      const text = `🍽 *${item.titulo}*\n${item.descripcion}\n💸 ${item.precio}€`;
+      const text = `*${item.titulo}*\n${item.descripcion}\n ${item.precio}€`;
       const options = {
         parse_mode: "Markdown",
         reply_markup: {
@@ -45,8 +45,8 @@ bot.onText(/\/menu (.+)/, async (msg, match) => {
       bot.sendMessage(chatId, text, options);
     });
   } catch (error) {
-    console.error("❌ Error al obtener el menú:", error);
-    bot.sendMessage(chatId, "❌ Error al obtener el menú.");
+    console.error("Error al obtener el menú:", error);
+    bot.sendMessage(chatId, "Error al obtener el menú.");
   }
 });
 
@@ -73,17 +73,17 @@ bot.on("callback_query", async (callbackQuery) => {
         reply_markup: {
           inline_keyboard: [
             [
-              { text: "✅ Completar", callback_data: `complete_${savedPedido._id}` },
-              { text: "❌ Cancelar", callback_data: `cancel_${savedPedido._id}` }
+              { text: "Completar", callback_data: `complete_${savedPedido._id}` },
+              { text: "Cancelar", callback_data: `cancel_${savedPedido._id}` }
             ]
           ]
         }
       };
 
-      bot.sendMessage(msg.chat.id, "🛒 Pedido creado. ¿Qué quieres hacer?", options);
+      bot.sendMessage(msg.chat.id, "Pedido creado. ¿Qué quieres hacer?", options);
     } catch (error) {
-      console.error("❌ Error al crear el pedido:", error);
-      bot.sendMessage(msg.chat.id, "❌ Error al procesar el pedido.");
+      console.error("Error al crear el pedido:", error);
+      bot.sendMessage(msg.chat.id, "Error al procesar el pedido.");
     }
   }
 
@@ -92,17 +92,17 @@ bot.on("callback_query", async (callbackQuery) => {
     const pedidoId = data.split("_")[1];
     try {
       const pedido = await Pedido.findById(pedidoId);
-      if (!pedido) return bot.sendMessage(msg.chat.id, "❌ Pedido no encontrado.");
+      if (!pedido) return bot.sendMessage(msg.chat.id, "Pedido no encontrado.");
 
       if (pedido.userId !== msg.chat.id.toString()) {
-        return bot.sendMessage(msg.chat.id, "🚫 No puedes completar un pedido que no es tuyo.");
+        return bot.sendMessage(msg.chat.id, "No puedes completar un pedido que no es tuyo.");
       }
 
       await Pedido.findByIdAndUpdate(pedidoId, { completado: true });
-      bot.sendMessage(msg.chat.id, "✅ Pedido marcado como completado.");
+      bot.sendMessage(msg.chat.id, "Pedido marcado como completado.");
     } catch (error) {
-      console.error("❌ Error al completar pedido:", error);
-      bot.sendMessage(msg.chat.id, "❌ No se pudo completar el pedido.");
+      console.error("Error al completar pedido:", error);
+      bot.sendMessage(msg.chat.id, "No se pudo completar el pedido.");
     }
   }
 
@@ -111,17 +111,17 @@ bot.on("callback_query", async (callbackQuery) => {
     const pedidoId = data.split("_")[1];
     try {
       const pedido = await Pedido.findById(pedidoId);
-      if (!pedido) return bot.sendMessage(msg.chat.id, "❌ Pedido no encontrado.");
+      if (!pedido) return bot.sendMessage(msg.chat.id, "Pedido no encontrado.");
 
       if (pedido.userId !== msg.chat.id.toString()) {
-        return bot.sendMessage(msg.chat.id, "🚫 No puedes cancelar un pedido que no es tuyo.");
+        return bot.sendMessage(msg.chat.id, "No puedes cancelar un pedido que no es tuyo.");
       }
 
       await Pedido.findByIdAndDelete(pedidoId);
-      bot.sendMessage(msg.chat.id, "❌ Pedido cancelado y eliminado.");
+      bot.sendMessage(msg.chat.id, "Pedido cancelado y eliminado.");
     } catch (error) {
-      console.error("❌ Error al cancelar pedido:", error);
-      bot.sendMessage(msg.chat.id, "❌ No se pudo cancelar el pedido.");
+      console.error("Error al cancelar pedido:", error);
+      bot.sendMessage(msg.chat.id, "No se pudo cancelar el pedido.");
     }
   }
 });
@@ -138,15 +138,15 @@ bot.onText(/\/mispedidos/, async (msg) => {
       return bot.sendMessage(chatId, "No tienes pedidos todavía.");
     }
 
-    let mensaje = "📦 *Tus pedidos:*\n\n";
+    let mensaje = " *Tus pedidos:*\n\n";
     pedidos.forEach((p, i) => {
-      mensaje += `#${i + 1} - *${p.menuId.titulo}* - ${p.completado ? "✅ Completado" : "🕒 Pendiente"}\n`;
+      mensaje += `#${i + 1} - *${p.menuId.titulo}* - ${p.completado ? "Completado" : "Pendiente"}\n`;
     });
 
     bot.sendMessage(chatId, mensaje, { parse_mode: "Markdown" });
   } catch (error) {
-    console.error("❌ Error al obtener pedidos:", error);
-    bot.sendMessage(chatId, "❌ Error al obtener tus pedidos.");
+    console.error("Error al obtener pedidos:", error);
+    bot.sendMessage(chatId, "Error al obtener tus pedidos.");
   }
 });
 
@@ -172,8 +172,8 @@ app.use(express.json());
 
 mongoose
   .connect(MONGODB_URI)
-  .then(() => console.log("✅ MongoDB connected successfully"))
-  .catch((err) => console.error("❌ MongoDB connection error:", err));
+  .then(() => console.log("MongoDB connected successfully"))
+  .catch((err) => console.error("MongoDB connection error:", err));
 
 // Rutas API
 app.use("/api/users", usuarioRouter);
@@ -183,5 +183,5 @@ app.use("/api/restaurants", restauranteRouter);
 
 // Arrancamos el servidor
 app.listen(port, () => {
-  console.log("🚀 El servidor está escuchando en el puerto " + port);
+  console.log(" El servidor está escuchando en el puerto " + port);
 });
